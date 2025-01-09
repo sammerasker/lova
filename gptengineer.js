@@ -30,3 +30,160 @@
       `,document.head.appendChild(o),t.styleElement=o,document.addEventListener("click",w,!0),document.addEventListener("submit",w,!0),document.addEventListener("touchstart",w,!0),document.addEventListener("touchend",w,!0)},F=()=>{document.removeEventListener("mouseover",y),document.removeEventListener("mouseout",A),document.removeEventListener("click",T),window.removeEventListener("scroll",$),document.removeEventListener("mousedown",v,!0),document.removeEventListener("click",w,!0),document.removeEventListener("submit",w,!0),document.removeEventListener("touchstart",w,!0),document.removeEventListener("touchend",w,!0),t.styleElement&&(t.styleElement.remove(),t.styleElement=null),document.body.style.cursor="",document.body.style.userSelect="",document.body.style.msUserSelect="",document.body.style.mozUserSelect="",t.hoveredElement&&(t.hoveredElement.classList.contains("gpt-selected-element")||n(t.hoveredElement),t.hoveredElement=null),x()},z=o=>{if(o.key==="Escape"&&t.isActive){o.preventDefault(),o.stopPropagation(),s({type:"TOGGLE_PICK_AND_EDIT_REQUESTED",payload:!1});return}(o.altKey&&o.key.toLowerCase()==="s"||o.key==="\xDF")&&(o.preventDefault(),o.stopPropagation(),s({type:"TOGGLE_PICK_AND_EDIT_REQUESTED",payload:null}))},q=(o,d)=>document.elementFromPoint(o,d),X=o=>{var d;try{if(!(o!=null&&o.origin)||!((d=o==null?void 0:o.data)!=null&&d.type)||!e.ALLOWED_ORIGINS.includes(o.origin))return;switch(o.data.type){case"TOGGLE_SELECTOR":let m=!!o.data.payload;if(t.isActive!==m)if(t.isActive=m,t.isActive){let p=q(t.mouseX,t.mouseY);p&&y({target:p}),B()}else F(),document.querySelectorAll('[style*="outline"], [style*="background-color"]').forEach(S=>{S.classList.contains("gpt-selected-element")||(n(S),S.style.cursor="")}),t.reset();break;case"UPDATE_SELECTED_ELEMENTS":if(!Array.isArray(o.data.payload)){console.error("Invalid payload for UPDATE_SELECTED_ELEMENTS");return}let h=o.data.payload;document.querySelectorAll(".gpt-selected-element").forEach(p=>{p.classList.remove("gpt-selected-element"),p!==t.hoveredElement&&n(p)}),h.forEach(p=>{if(!(p!=null&&p.filePath)||!(p!=null&&p.fileName)||!(p!=null&&p.lineNumber)){console.error("Invalid element data:",p);return}let{filePath:S,fileName:g,lineNumber:H}=p,N=`[data-component-path="${S}"][data-component-file="${g}"][data-component-line="${H}"]`;document.querySelectorAll(N).forEach(b=>{b.classList.add("gpt-selected-element"),Math.abs(b.getBoundingClientRect().width-window.innerWidth)<5?(b.style.outline=`2px solid ${e.HIGHLIGHT_COLOR}`,b.style.outlineOffset=e.HIGHLIGHT_STYLE.FULL_WIDTH.OFFSET):(b.style.outline=`2px solid ${e.HIGHLIGHT_COLOR}`,b.style.outlineOffset="0"),b.style.backgroundColor=`${e.HIGHLIGHT_BG}`})});break;case"GET_SELECTOR_STATE":s({type:"SELECTOR_STATE_RESPONSE",payload:{isActive:t.isActive}});break;default:console.warn("Unknown message type:",o.data.type)}}catch(m){console.error("Error handling message:",m),F(),t.reset()}},J=o=>{t.mouseX=o.clientX,t.mouseY=o.clientY},Q=()=>{s({type:"REQUEST_PICKER_STATE"}),s({type:"REQUEST_SELECTED_ELEMENTS"})};(()=>{try{f(),window.addEventListener("message",X),document.addEventListener("keydown",z),document.addEventListener("mousemove",J),s({type:"SELECTOR_SCRIPT_LOADED"}),Q()}catch(o){console.error("Failed to initialize selector script:",o)}})()})();var Y=()=>{let e=document.createElement("script");e.textContent=`
     ${K}
   `,document.head.appendChild(e)};var at=()=>{window.top!==window.self&&(U(),W(),j(),Y())};at();})();
+
+// Core configuration
+const CONFIG = {
+  HIGHLIGHT: {
+    COLOR: "#4282C1",
+    BG: "#4285f41a",
+    STYLE: {
+      FULL_WIDTH: { OFFSET: "-10px", STYLE: "solid" },
+      NORMAL: { OFFSET: "0", STYLE: "solid" }
+    }
+  },
+  ORIGINS: ["https://gptengineer.app", "http://localhost:3000", "https://lovable.dev"],
+  UI: {
+    Z_INDEX: 10000,
+    TOOLTIP_OFFSET: 25,
+    MAX_TOOLTIP_WIDTH: 200,
+    SCROLL_DEBOUNCE: 420
+  }
+};
+
+// Event management
+class EventManager {
+  private listeners = new Map();
+  
+  addListener(element, event, handler) {
+    element.addEventListener(event, handler);
+    if (!this.listeners.has(element)) {
+      this.listeners.set(element, new Map());
+    }
+    this.listeners.get(element).set(event, handler);
+  }
+
+  removeAllListeners() {
+    this.listeners.forEach((events, element) => {
+      events.forEach((handler, event) => {
+        element.removeEventListener(event, handler);
+      });
+    });
+    this.listeners.clear();
+  }
+}
+
+// Error boundary wrapper
+const withErrorBoundary = (fn) => {
+  try {
+    return fn();
+  } catch (err) {
+    console.error('[GPTEngineer Error]:', err);
+    return null;
+  }
+};
+
+// Memory leak protection
+class MemoryManager {
+  private weakRefs = new WeakMap();
+  private intervals = new Set();
+  
+  cleanup() {
+    this.intervals.forEach(clearInterval);
+    this.intervals.clear();
+    this.weakRefs = new WeakMap();
+  }
+}
+
+// Add interfaces for type safety
+interface ComponentElement {
+  filePath: string;
+  fileName: string;
+  elementType: string;
+  lineNumber: number;
+  content: string | null;
+}
+
+// Add message types
+type MessageType = 
+  | 'ELEMENT_CLICKED'
+  | 'URL_CHANGED'
+  | 'FETCH_ERROR'
+  | 'RUNTIME_ERROR'
+  | 'TOGGLE_PICK_AND_EDIT_REQUESTED';
+
+// Add DOM utility class
+class DOMUtils {
+  static isFullWidth(element: HTMLElement): boolean {
+    return Math.abs(element.getBoundingClientRect().width - window.innerWidth) < 5;
+  }
+  
+  static highlight(element: HTMLElement, config: typeof CONFIG) {
+    const style = this.isFullWidth(element) 
+      ? config.HIGHLIGHT.STYLE.FULL_WIDTH 
+      : config.HIGHLIGHT.STYLE.NORMAL;
+      
+    element.style.outline = `2px ${style.STYLE} ${config.HIGHLIGHT.COLOR}`;
+    element.style.outlineOffset = style.OFFSET;
+    element.style.backgroundColor = config.HIGHLIGHT.BG;
+    return element;
+  }
+
+  static clearHighlight(element: HTMLElement) {
+    element.style.outline = '';
+    element.style.outlineOffset = '';
+    element.style.backgroundColor = '';
+    element.style.cursor = '';
+    return element;
+  }
+}
+
+// Add state management
+class StateManager {
+  private state = new Map<string, any>();
+
+  setState<T>(key: string, value: T): void {
+    this.state.set(key, value);
+  }
+
+  getState<T>(key: string): T | undefined {
+    return this.state.get(key);
+  }
+
+  clearState(): void {
+    this.state.clear();
+  }
+}
+
+// Add error boundary wrapper
+function withErrorBoundary<T>(fn: () => T): T | null {
+  try {
+    return fn();
+  } catch (err) {
+    console.error('[GPTEngineer Error]:', err);
+    return null;
+  }
+}
+
+// Main class
+class GPTEngineer {
+  private eventManager = new EventManager();
+  private memoryManager = new MemoryManager();
+  private stateManager = new StateManager();
+  private domUtils = new DOMUtils();
+  
+  init() {
+    this.setupEventListeners();
+    this.setupMessageHandling();
+  }
+
+  destroy() {
+    this.eventManager.removeAllListeners();
+    this.memoryManager.cleanup();
+  }
+  
+  // ...rest of implementation
+}
+
+// Usage
+const gptEngineer = new GPTEngineer();
+gptEngineer.init();
